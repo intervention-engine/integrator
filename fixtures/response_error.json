@@ -1,0 +1,13 @@
+{
+  "status": false,
+  "error": "invalid ee",
+  "query": {
+    "env": "test",
+    "host": "test.foo.net",
+    "ee": "-987654321",
+    "startDateTime": "2010-01-01T00:00:00",
+    "endDateTime": "2016-06-08T23:59:59",
+    "queryStartDateTime": "2016-06-08T21:12:35.0170534Z",
+    "queryCompleteDateTime": "2016-06-08T21:13:02.6878202Z"
+  }
+}

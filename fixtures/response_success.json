@@ -1,0 +1,41 @@
+{
+  "status": true,
+  "result": [
+    {
+      "retrieveURL": "http://test.foo.net/document/1.1.1.1.1.1",
+      "creationTime": "20140425025103",
+      "title": "Test Continuity of Care",
+      "documentType": "XML^HL7^231^CCD^C32",
+      "documentID": "1.1.1.1.1.1",
+      "hash": "4C167E7B7F006A18ABB2E4A1A9B2489936947E91",
+      "size": 28452
+    },
+    {
+      "retrieveURL": "http://test.foo.net/document/1.1.1.1.1.2",
+      "creationTime": "20140425021403",
+      "title": "Test Continuity of Care",
+      "documentType": "XML^HL7^231^CCD^C32",
+      "documentID": "1.1.1.1.1.2",
+      "hash": "5B885732FE2D9D33AAEBBDA3CCE01A2F1D279E13",
+      "size": 27869
+    },
+    {
+      "retrieveURL": "http://test.foo.net/document/1.1.1.1.1.3",
+      "creationTime": "20131209050703",
+      "title": "Test Clinical Summary",
+      "documentType": "XML^HL7^231^CCD^C32",
+      "documentID": "1.1.1.1.1.3",
+      "hash": "B6983379C28B50FF5D2A383BF0F0B6B6FDAFDD1B",
+      "size": 17028
+    }
+  ],
+  "query": {
+    "env": "test",
+    "host": "test.foo.net",
+    "ee": "123456789",
+    "startDateTime": "2010-01-01T00:00:00",
+    "endDateTime": "2016-06-08T23:59:59",
+    "queryStartDateTime": "2016-06-08T21:12:35.0170534Z",
+    "queryCompleteDateTime": "2016-06-08T21:13:02.6878202Z"
+  }
+}
