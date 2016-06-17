@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"time"
 )
 
@@ -17,6 +19,7 @@ type HieClient interface {
 
 type HttpHieClient struct {
 	BaseURL      string
+	UseCUrl      bool
 	UseBasicAuth bool
 	User         string
 	Password     string
@@ -37,6 +40,18 @@ func NewBasicAuthHttpHieClient(baseURL, user, password string) *HttpHieClient {
 	}
 }
 
+func NewCUrlHttpHieClient(baseURL string) *HttpHieClient {
+	c := NewHttpHieClient(baseURL)
+	c.UseCUrl = true
+	return c
+}
+
+func NewCUrlBasicAuthHttpHieClient(baseURL, user, password string) *HttpHieClient {
+	c := NewBasicAuthHttpHieClient(baseURL, user, password)
+	c.UseCUrl = true
+	return c
+}
+
 func (c *HttpHieClient) QueryRecords(mrn string, start *time.Time, end *time.Time) (*QueryResponse, error) {
 	params := url.Values{}
 	params.Set("ee", mrn)
@@ -46,32 +61,80 @@ func (c *HttpHieClient) QueryRecords(mrn string, start *time.Time, end *time.Tim
 	if end != nil {
 		params.Set("endDateTime", end.Format("2006-01-02T15:04:05"))
 	}
-	req, err := http.NewRequest("GET", c.BaseURL+"?"+params.Encode(), nil)
-	if err != nil {
-		return nil, err
-	}
-	if c.UseBasicAuth {
-		req.SetBasicAuth(c.User, c.Password)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("Non-OK response from source server: %d (%s)", resp.StatusCode, resp.Status)
+	qURL := c.BaseURL + "?" + params.Encode()
+	var data io.ReadCloser
+	var err error
+	var cmd *exec.Cmd
+	if c.UseCUrl {
+		args := []string{}
+		if c.UseBasicAuth {
+			args = append(args, "-u", c.User+":"+c.Password)
+		}
+		args = append(args, qURL)
+		cmd = exec.Command("curl", args...)
+		data, err = cmd.StdoutPipe()
+		if err != nil {
+			return nil, err
+		}
+		if err := cmd.Start(); err != nil {
+			return nil, err
+		}
+	} else {
+		req, err2 := http.NewRequest("GET", qURL, nil)
+		if err2 != nil {
+			return nil, err2
+		}
+		if c.UseBasicAuth {
+			req.SetBasicAuth(c.User, c.Password)
+		}
+		resp, err2 := http.DefaultClient.Do(req)
+		if err2 != nil {
+			return nil, err2
+		}
+		data = resp.Body
+		defer data.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("Non-OK response from source server: %d (%s)", resp.StatusCode, resp.Status)
+		}
 	}
 
 	qr := new(QueryResponse)
-	if err := json.NewDecoder(resp.Body).Decode(qr); err != nil {
+	if err := json.NewDecoder(data).Decode(qr); err != nil {
 		return nil, err
+	}
+
+	if c.UseCUrl {
+		if err := cmd.Wait(); err != nil {
+			return nil, err
+		}
 	}
 
 	return qr, err
 }
 
+type nopCloser struct {
+	io.Reader
+}
+
+func (nopCloser) Close() error { return nil }
+
 func (c *HttpHieClient) DownloadRecord(url string) (content io.ReadCloser, contentType string, err error) {
+	if c.UseCUrl {
+		args := []string{}
+		if c.UseBasicAuth {
+			args = append(args, "-u", c.User+":"+c.Password)
+		}
+		args = append(args, url)
+		data, err := exec.Command("curl", args...).Output()
+		if err != nil {
+			return nil, "", err
+		}
+		// Not ideal, but for now, we're assuming it's always XML.
+		return nopCloser{bytes.NewBuffer(data)}, "text/xml; charset=utf-8", nil
+	}
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, "", err
