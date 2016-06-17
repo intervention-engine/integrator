@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -28,14 +29,18 @@ func NewDataCopier(hieClient HieClient, ingestClient IngestClient, txLogMgr Tran
 }
 
 func (d *DataCopier) CopyRecords(mrn string, formats ...string) error {
+	log.Printf("Getting transaction history for %s\n", mrn)
 	history, err := d.txLogMgr.FindEntriesByEE(mrn)
 	if err != nil {
+		log.Printf("Error getting transaction history: %s\n", err)
 		return err
 	}
+	log.Printf("Retrieved transaction history with %d entries\n", len(history))
 
 	// First, take another shot at previous failed attempts
 	for _, h := range history {
 		if h.FailureCount > 0 {
+			log.Printf("Retrying previous failed copy attempt of doc %s\n", h.DocumentID)
 			if err := d.copy(h); err != nil {
 				fmt.Printf("Failed to download document <%s> on attempt #%d: %s\n", h.DocumentID, h.FailureCount, err)
 			}
@@ -55,18 +60,27 @@ func (d *DataCopier) CopyRecords(mrn string, formats ...string) error {
 	}
 
 	// Query for the document list
+	log.Printf("Querying records starting at %s\n", start)
 	resp, err := d.hieClient.QueryRecords(mrn, &start, nil)
 	if err != nil {
 		fmt.Printf("Failed to query documents for ee %s since %s: %s\n", mrn, start.Format(time.UnixDate), err)
 	}
 
+	if !resp.Status {
+		log.Printf("Unsuccessful query: %s\n", resp.Error)
+	}
+
 	// Now go through the list and copy supported documents
 	if resp.Status {
+		log.Printf("Query returned %d results\n", len(resp.Result))
 		for _, result := range resp.Result {
+			log.Printf("Processing document %s\n", result.DocumentID)
 			if !supportedFormat(result.DocumentType, formats...) {
+				log.Printf("Skipping due to unsupported format: %s\n", result.DocumentType)
 				continue
 			}
 			if inHistory(result.DocumentID, history) {
+				log.Printf("Skipping due to being in history\n")
 				continue
 			}
 			// It's supported and we've never tried it before.  Attempt to copy it.
@@ -78,9 +92,11 @@ func (d *DataCopier) CopyRecords(mrn string, formats ...string) error {
 			if err := d.copy(&t); err != nil {
 				fmt.Printf("Failed to download document <%s> on initial attempt: %s\n", result.DocumentID, err)
 			}
+			log.Printf("Storing transaction results\n")
 			if err := d.txLogMgr.StoreEntry(&t); err != nil {
 				fmt.Printf("Failed to store log for document <%s>: %s\n", result.DocumentID, err)
 			}
+			log.Printf("Successfully stored transaction\n")
 		}
 	}
 	return nil
@@ -105,17 +121,22 @@ func inHistory(documentID string, history []*TransactionLogEntry) bool {
 }
 
 func (d *DataCopier) copy(t *TransactionLogEntry) error {
+	log.Printf("Downloading %s\n", t.RetrieveURL)
 	rc, ct, err := d.hieClient.DownloadRecord(t.RetrieveURL)
 	if err != nil {
+		log.Printf("Failed download: %s\n", err.Error())
 		t.Error = err.Error()
 		t.FailureCount++
 		return err
 	}
+	log.Printf("Uploading to ingest service w/ content type %s\n", ct)
 	err = d.ingestClient.Ingest(ct, rc)
 	if err != nil {
+		log.Printf("Failed upload: %s\n", err.Error())
 		t.Error = err.Error()
 		t.FailureCount++
 		return err
 	}
+	log.Printf("Successful upload\n")
 	return nil
 }
