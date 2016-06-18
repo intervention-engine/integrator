@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"time"
 )
@@ -42,10 +41,10 @@ func (d *DataCopier) CopyRecords(mrn string, formats ...string) error {
 		if h.FailureCount > 0 {
 			log.Printf("Retrying previous failed copy attempt of doc %s\n", h.DocumentID)
 			if err := d.copy(h); err != nil {
-				fmt.Printf("Failed to download document <%s> on attempt #%d: %s\n", h.DocumentID, h.FailureCount, err)
+				log.Printf("Failed to download document <%s> on attempt #%d: %s\n", h.DocumentID, h.FailureCount, err)
 			}
 			if err := d.txLogMgr.StoreEntry(h); err != nil {
-				fmt.Printf("Failed to store log for document <%s>: %s\n", h.DocumentID, err)
+				log.Printf("Failed to store log for document <%s>: %s\n", h.DocumentID, err)
 			}
 		}
 	}
@@ -63,7 +62,7 @@ func (d *DataCopier) CopyRecords(mrn string, formats ...string) error {
 	log.Printf("Querying records starting at %s\n", start)
 	resp, err := d.hieClient.QueryRecords(mrn, &start, nil)
 	if err != nil {
-		fmt.Printf("Failed to query documents for ee %s since %s: %s\n", mrn, start.Format(time.UnixDate), err)
+		log.Printf("Failed to query documents for ee %s since %s: %s\n", mrn, start.Format(time.UnixDate), err)
 	}
 
 	if !resp.Status {
@@ -90,11 +89,11 @@ func (d *DataCopier) CopyRecords(mrn string, formats ...string) error {
 				Date:               resp.Query.EndDateTime,
 			}
 			if err := d.copy(&t); err != nil {
-				fmt.Printf("Failed to download document <%s> on initial attempt: %s\n", result.DocumentID, err)
+				log.Printf("Failed to download document <%s> on initial attempt: %s\n", result.DocumentID, err)
 			}
 			log.Printf("Storing transaction results\n")
 			if err := d.txLogMgr.StoreEntry(&t); err != nil {
-				fmt.Printf("Failed to store log for document <%s>: %s\n", result.DocumentID, err)
+				log.Printf("Failed to store log for document <%s>: %s\n", result.DocumentID, err)
 			}
 			log.Printf("Successfully stored transaction\n")
 		}
@@ -137,6 +136,8 @@ func (d *DataCopier) copy(t *TransactionLogEntry) error {
 		t.FailureCount++
 		return err
 	}
+	t.Error = ""
+	t.FailureCount = 0
 	log.Printf("Successful upload\n")
 	return nil
 }
