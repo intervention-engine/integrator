@@ -74,12 +74,6 @@ func (m *MockTransactionLogManager) StoreEntry(entry *TransactionLogEntry) error
 	return m.StoreEntryFns[i](entry)
 }
 
-type nopCloser struct {
-	io.Reader
-}
-
-func (nopCloser) Close() error { return nil }
-
 func (suite *DataCopierSuite) SetupTest() {
 	require := suite.Require()
 

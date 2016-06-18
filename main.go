@@ -18,6 +18,7 @@ func main() {
 	ee := flag.String("ee", "", "EE number to copy data for (user must supply 'ee' OR 'eeFile')")
 	eeFile := flag.String("eeFile", "", "Path to a file with an EE number on each line (user must supply 'ee' OR 'eeFile')")
 	formats := flag.String("formats", "", "Comma-separate list of supported document formats")
+	curl := flag.Bool("curl", false, "Flag to indicate if system CUrl command should be used (default: false).  Only use if go http lib isn't working (e.g., tls renegotiation)")
 	mongoAddr := flag.String("mongo", "", "MongoDB address (default: \"mongodb://localhost:27017\")")
 	flag.Parse()
 
@@ -64,9 +65,17 @@ func main() {
 
 	var hieClient *HttpHieClient
 	if *user != "" {
-		hieClient = NewBasicAuthHttpHieClient(*hieAddr, *user, *password)
+		if *curl {
+			hieClient = NewCUrlBasicAuthHttpHieClient(*hieAddr, *user, *password)
+		} else {
+			hieClient = NewBasicAuthHttpHieClient(*hieAddr, *user, *password)
+		}
 	} else {
-		hieClient = NewHttpHieClient(*hieAddr)
+		if *curl {
+			hieClient = NewCUrlHttpHieClient(*hieAddr)
+		} else {
+			hieClient = NewHttpHieClient(*hieAddr)
+		}
 	}
 
 	ingestClient := NewHttpIngestClient(*ingestAddr)
