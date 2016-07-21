@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"io/ioutil"
 	"log"
+	"os"
+	"path"
 	"time"
 )
 
@@ -10,6 +14,7 @@ type DataCopier struct {
 	hieClient    HieClient
 	ingestClient IngestClient
 	txLogMgr     TransactionLogManager
+	pathToCopies string
 }
 
 func NewDataCopier(hieClient HieClient, ingestClient IngestClient, txLogMgr TransactionLogManager) (*DataCopier, error) {
@@ -24,6 +29,30 @@ func NewDataCopier(hieClient HieClient, ingestClient IngestClient, txLogMgr Tran
 		hieClient:    hieClient,
 		ingestClient: ingestClient,
 		txLogMgr:     txLogMgr,
+		pathToCopies: "",
+	}, nil
+}
+
+func NewDataCopierWithLocalCopies(hieClient HieClient, ingestClient IngestClient, txLogMgr TransactionLogManager, pathToCopies string) (*DataCopier, error) {
+	if hieClient == nil {
+		return nil, errors.New("HIE Client must be configured")
+	} else if ingestClient == nil {
+		return nil, errors.New("Ingest Client must be configured")
+	} else if txLogMgr == nil {
+		return nil, errors.New("Transaction Log Manager must be configured")
+	} else if pathToCopies == "" {
+		return nil, errors.New("A path to store copies must be provided")
+	}
+
+	if err := os.MkdirAll(pathToCopies, 0777); err != nil {
+		return nil, err
+	}
+
+	return &DataCopier{
+		hieClient:    hieClient,
+		ingestClient: ingestClient,
+		txLogMgr:     txLogMgr,
+		pathToCopies: pathToCopies,
 	}, nil
 }
 
@@ -127,6 +156,26 @@ func (d *DataCopier) copy(t *TransactionLogEntry) error {
 		t.Error = err.Error()
 		t.FailureCount++
 		return err
+	}
+	if d.pathToCopies != "" {
+		eePath := path.Join(d.pathToCopies, t.EE)
+		if err := os.MkdirAll(eePath, 0777); err != nil {
+			log.Printf("Warning: Couldn't create dir %s to store copy\n", eePath)
+		} else {
+			filePath := path.Join(eePath, t.DocumentID+".xml")
+			log.Printf("Copying to %s\n", filePath)
+			// We must read out the data into a buffer first
+			defer rc.Close()
+			data, err := ioutil.ReadAll(rc)
+			if err != nil {
+				return err
+			}
+			if err := ioutil.WriteFile(filePath, data, 0644); err != nil {
+				log.Printf("Warning: Couldn't copy to %s\n", filePath)
+			}
+			// Then we must reset the rc reader so the data can be uploaded
+			rc = ioutil.NopCloser(bytes.NewBuffer(data))
+		}
 	}
 	log.Printf("Uploading to ingest service w/ content type %s\n", ct)
 	err = d.ingestClient.Ingest(ct, rc)

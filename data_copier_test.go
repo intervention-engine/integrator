@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -22,7 +24,6 @@ type DataCopierSuite struct {
 	hieClient    *MockHieClient
 	ingestClient *MockIngestClient
 	txLogMgr     *MockTransactionLogManager
-	dataCopier   *DataCopier
 }
 
 type MockHieClient struct {
@@ -75,17 +76,40 @@ func (m *MockTransactionLogManager) StoreEntry(entry *TransactionLogEntry) error
 }
 
 func (suite *DataCopierSuite) SetupTest() {
-	require := suite.Require()
-
-	var err error
 	suite.hieClient = &MockHieClient{}
 	suite.ingestClient = &MockIngestClient{}
 	suite.txLogMgr = &MockTransactionLogManager{}
-	suite.dataCopier, err = NewDataCopier(suite.hieClient, suite.ingestClient, suite.txLogMgr)
-	require.NoError(err)
 }
 
 func (suite *DataCopierSuite) TestSuccessfulOperation() {
+	require := suite.Require()
+	suite.SetupMocksForSuccess("")
+	dataCopier, err := NewDataCopier(suite.hieClient, suite.ingestClient, suite.txLogMgr)
+	require.NoError(err)
+	err = dataCopier.CopyRecords("123456789", "XML^HL7^231^CCD^C32")
+	require.NoError(err)
+}
+
+func (suite *DataCopierSuite) TestSuccessfulOperationWithLocalCopies() {
+	require := suite.Require()
+	assert := suite.Assert()
+
+	tempDir, err := ioutil.TempDir("", "dc_test")
+	require.NoError(err)
+	suite.SetupMocksForSuccess(tempDir)
+	dataCopier, err := NewDataCopierWithLocalCopies(suite.hieClient, suite.ingestClient, suite.txLogMgr, tempDir)
+	require.NoError(err)
+	err = dataCopier.CopyRecords("123456789", "XML^HL7^231^CCD^C32")
+	require.NoError(err)
+	for _, num := range []string{"1", "2", "3"} {
+		data, err := ioutil.ReadFile(path.Join(tempDir, "123456789", "1.1.1.1.1."+num+".xml"))
+		require.NoError(err)
+		assert.Equal("<foo>"+num+"</foo>", string(data))
+	}
+	os.RemoveAll(tempDir)
+}
+
+func (suite *DataCopierSuite) SetupMocksForSuccess(localCopyPath string) {
 	assert := suite.Assert()
 	require := suite.Require()
 
@@ -188,7 +212,4 @@ func (suite *DataCopierSuite) TestSuccessfulOperation() {
 		}, entry)
 		return nil
 	})
-
-	// Now just kick it all into motion
-	suite.dataCopier.CopyRecords("123456789", "XML^HL7^231^CCD^C32")
 }
