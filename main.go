@@ -20,6 +20,7 @@ func main() {
 	formats := flag.String("formats", "", "Comma-separate list of supported document formats")
 	curl := flag.Bool("curl", false, "Flag to indicate if system CUrl command should be used (default: false).  Only use if go http lib isn't working (e.g., tls renegotiation)")
 	mongoAddr := flag.String("mongo", "", "MongoDB address (default: \"mongodb://localhost:27017\")")
+	copyDir := flag.String("copy-dir", "", "Path to a folder where HIE records should be copied locally (default: none)")
 	flag.Parse()
 
 	if *hieAddr == "" || *ingestAddr == "" || (*ee == "" && *eeFile == "") {
@@ -80,7 +81,12 @@ func main() {
 
 	ingestClient := NewHttpIngestClient(*ingestAddr)
 
-	dataCopier, err := NewDataCopier(hieClient, ingestClient, txLogManager)
+	var dataCopier *DataCopier
+	if *copyDir == "" {
+		dataCopier, err = NewDataCopier(hieClient, ingestClient, txLogManager)
+	} else {
+		dataCopier, err = NewDataCopierWithLocalCopies(hieClient, ingestClient, txLogManager, *copyDir)
+	}
 	if err != nil {
 		fmt.Println("Error configuring the data copier:", err.Error())
 		os.Exit(1)
