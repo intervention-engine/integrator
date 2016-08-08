@@ -275,3 +275,25 @@ func (suite *HIEClientSuite) TestDownloadRecordError() {
 	assert.Nil(content)
 	assert.Empty(cType)
 }
+
+func (suite *HIEClientSuite) TestLenientParse() {
+	assert := suite.Assert()
+	require := suite.Require()
+
+	t, err := lenientParse("2006-01-02T15:04:05.000000000Z", "2016-06-08T21:13:02.123456789Z")
+	require.Nil(err)
+	assert.Equal(time.Date(2016, 6, 8, 21, 13, 2, 123456789, time.UTC), t)
+
+	t, err = lenientParse("2006-01-02T15:04:05.000000000Z", "2016-06-08T21:13:02.12345678Z")
+	require.Nil(err)
+	assert.Equal(time.Date(2016, 6, 8, 21, 13, 2, 123456780, time.UTC), t)
+	t, err = lenientParse("2006-01-02T15:04:05.000000000Z", "2016-06-08T21:13:02.1234567Z")
+	require.Nil(err)
+	assert.Equal(time.Date(2016, 6, 8, 21, 13, 2, 123456700, time.UTC), t)
+	t, err = lenientParse("2006-01-02T15:04:05.000000000Z", "2016-06-08T21:13:02.123456Z")
+	require.Nil(err)
+	assert.Equal(time.Date(2016, 6, 8, 21, 13, 2, 123456000, time.UTC), t)
+	t, err = lenientParse("2006-01-02T15:04:05.000000000Z", "2016-06-08T21:13:02.12345Z")
+	require.Nil(err)
+	assert.Equal(time.Date(2016, 6, 8, 21, 13, 2, 123450000, time.UTC), t)
+}

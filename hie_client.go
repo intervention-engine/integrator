@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -231,13 +232,22 @@ func (q *QueryRequest) UnmarshalJSON(data []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	q.QueryStartDateTime, err = time.Parse("2006-01-02T15:04:05.0000000Z", m["queryStartDateTime"])
+	q.QueryStartDateTime, err = lenientParse("2006-01-02T15:04:05.000000000Z", m["queryStartDateTime"])
 	if err != nil {
 		return err
 	}
-	q.QueryCompleteDateTime, err = time.Parse("2006-01-02T15:04:05.0000000Z", m["queryCompleteDateTime"])
+	q.QueryCompleteDateTime, err = lenientParse("2006-01-02T15:04:05.000000000Z", m["queryCompleteDateTime"])
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func lenientParse(dtfmt, dt string) (time.Time, error) {
+	t, err := time.Parse(dtfmt, dt)
+	if err != nil && strings.Contains(dtfmt, "0Z") {
+		dtfmt = strings.Replace(dtfmt, "0Z", "Z", 1)
+		return lenientParse(dtfmt, dt)
+	}
+	return t, err
 }
