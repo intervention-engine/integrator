@@ -92,10 +92,12 @@ func (d *DataCopier) CopyRecords(mrn string, formats ...string) error {
 	resp, err := d.hieClient.QueryRecords(mrn, &start, nil)
 	if err != nil {
 		log.Printf("Failed to query documents for ee %s since %s: %s\n", mrn, start.Format(time.UnixDate), err)
+		return err
 	}
 
 	if !resp.Status {
 		log.Printf("Unsuccessful query: %s\n", resp.Error)
+		return err
 	}
 
 	// Now go through the list and copy supported documents
