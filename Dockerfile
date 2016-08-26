@@ -6,7 +6,6 @@ FROM golang
 ADD . /go/src/github.com/intervention-engine/integrator
 
 WORKDIR /go/src/github.com/intervention-engine/integrator
-RUN go get
 RUN go build
 
 # Install Dockerize to get support for waiting on another container's port to be available.
