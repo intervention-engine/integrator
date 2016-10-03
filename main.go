@@ -26,17 +26,22 @@ func main() {
 	copyDirFlag := flag.String("copy-dir", "", "Path to a folder where HIE records should be copied locally (env: COPY_DIR, default: none)")
 	cronFlag := flag.String("cron", "", "Cron expression indicating when the integrator tool should run to refresh data (env: INTEGRATOR_CRON, example: \"0 0 20 * * *\").  If cron is not supplied, \"now\" must be set.")
 	nowFlag := flag.Bool("now", false, "Flag to indicate if the integrator should run immediately (env: INTEGRATOR_NOW, default: false).  If used without cron, integrator will run once and then exit.  If now is not set, \"cron\" must be supplied.")
+	logFileFlag := flag.String("logfile", "", "Path to a directory for integrator logs to be written to.")
 	flag.Parse()
 
-	err := os.Mkdir("/etc/integratorlogs", 0755)
-	if err != nil && !os.IsExist(err){
-		fmt.Println("Error creating log directory:" + err.Error())
+	lfpath := getConfigValue(logFileFlag, "INTEGRATOR_LOG_DIR", "")
+	if lfpath != "" {
+		err := os.Mkdir(lfpath, 0755)
+		if err != nil && !os.IsExist(err){
+			fmt.Println("Error creating log directory:" + err.Error())
+		}
+		lf, err := os.OpenFile(lfpath + "/integrator.log", os.O_RDWR|os.O_APPEND, 0755)
+		if os.IsNotExist(err) {
+			lf, err := os.Create(lfpath + "/integrator.log")
+		} else if err != nil {
+			fmt.Println("Unable to create ie log file:" + err.Error())
+		} else {log.SetOutput(lf)}
 	}
-	lf, err := os.Create("/etc/integratorlogs/integrator.log")
-	if err != nil {
-		fmt.Println("Unable to create ie log file:" + err.Error())
-	}
-	log.SetOutput(lf)
 
 	hie := getRequiredConfigValue(hieFlag, "HIE_URL", "HIE URL")
 	user := getConfigValue(userFlag, "HIE_USER", "")
@@ -53,7 +58,7 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
-	
+	var err error
 	var eeSlice []string
 	if ee != "" {
 		eeSlice = []string{ee}
