@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"log"
 
 	"github.com/robfig/cron"
 
@@ -27,6 +28,16 @@ func main() {
 	nowFlag := flag.Bool("now", false, "Flag to indicate if the integrator should run immediately (env: INTEGRATOR_NOW, default: false).  If used without cron, integrator will run once and then exit.  If now is not set, \"cron\" must be supplied.")
 	flag.Parse()
 
+	err := os.Mkdir("/etc/integratorlogs", 0755)
+	if err != nil && !os.IsExist(err){
+		fmt.Println("Error creating log directory:" + err.Error())
+	}
+	lf, err := os.Create("/etc/integratorlogs/integrator.log")
+	if err != nil {
+		fmt.Println("Unable to create ie log file:" + err.Error())
+	}
+	log.SetOutput(lf)
+
 	hie := getRequiredConfigValue(hieFlag, "HIE_URL", "HIE URL")
 	user := getConfigValue(userFlag, "HIE_USER", "")
 	password := getConfigValue(passwordFlag, "HIE_PASSWORD", "")
@@ -42,7 +53,7 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
-	var err error
+	
 	var eeSlice []string
 	if ee != "" {
 		eeSlice = []string{ee}
