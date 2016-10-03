@@ -37,8 +37,9 @@ func main() {
 		}
 		lf, err := os.OpenFile(lfpath + "/integrator.log", os.O_RDWR|os.O_APPEND, 0755)
 		if os.IsNotExist(err) {
-			lf, err := os.Create(lfpath + "/integrator.log")
-		} else if err != nil {
+			lf, err = os.Create(lfpath + "/integrator.log")
+		}
+		if err != nil {
 			fmt.Println("Unable to create ie log file:" + err.Error())
 		} else {log.SetOutput(lf)}
 	}
