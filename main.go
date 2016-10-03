@@ -26,7 +26,7 @@ func main() {
 	copyDirFlag := flag.String("copy-dir", "", "Path to a folder where HIE records should be copied locally (env: COPY_DIR, default: none)")
 	cronFlag := flag.String("cron", "", "Cron expression indicating when the integrator tool should run to refresh data (env: INTEGRATOR_CRON, example: \"0 0 20 * * *\").  If cron is not supplied, \"now\" must be set.")
 	nowFlag := flag.Bool("now", false, "Flag to indicate if the integrator should run immediately (env: INTEGRATOR_NOW, default: false).  If used without cron, integrator will run once and then exit.  If now is not set, \"cron\" must be supplied.")
-	logFileFlag := flag.String("logfile", "", "Path to a directory for integrator logs to be written to.")
+	logFileFlag := flag.String("logdir", "", "Path to a directory for integrator logs to be written to.")
 	flag.Parse()
 
 	lfpath := getConfigValue(logFileFlag, "INTEGRATOR_LOG_DIR", "")
